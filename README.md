@@ -133,5 +133,5 @@ Keyboard shortcuts
 Full-screen mode
 Word/character counter
 💬 Support
-For support, email yourusername@email.com or create an issue on GitHub.
+For support, email virendrapandule7070@gmail.com or create an issue on GitHub.
 ⭐ Star this repo if you found it useful!
