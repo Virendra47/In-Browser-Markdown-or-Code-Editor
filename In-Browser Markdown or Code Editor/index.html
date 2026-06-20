@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Markdown · Code Editor with JS</title>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif;
+      height: 100vh;
+      overflow: hidden;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+
+    :root {
+      --bg-main: #f6f8fa;
+      --bg-panel: #ffffff;
+      --bg-input: #f0f2f5;
+      --bg-header: #e8ecf0;
+      --border: #d0d7de;
+      --text: #1f2328;
+      --text-secondary: #57606a;
+      --scrollbar-track: #e1e4e8;
+      --scrollbar-thumb: #b0b8c4;
+      --scrollbar-thumb-hover: #8f99a8;
+      --shadow: 0 1px 4px rgba(0,0,0,0.06);
+      --toggle-bg: #d0d7de;
+      --toggle-dot: #ffffff;
+      --accent: #0969da;
+      --button-bg: #6C76E8;
+      --button-hover: #5a65d4;
+      --footer-bg: #6C76E8;
+    }
+
+    body.dark-theme {
+      --bg-main: #0d1117;
+      --bg-panel: #161b22;
+      --bg-input: #0d1117;
+      --bg-header: #21262d;
+      --border: #30363d;
+      --text: #f0f6fc;
+      --text-secondary: #8b949e;
+      --scrollbar-track: #21262d;
+      --scrollbar-thumb: #484f58;
+      --scrollbar-thumb-hover: #6e7681;
+      --shadow: 0 1px 4px rgba(0,0,0,0.4);
+      --toggle-bg: #3d444d;
+      --toggle-dot: #f0f6fc;
+      --accent: #58a6ff;
+      --button-bg: #58a6ff;
+      --button-hover: #3d8bd9;
+      --footer-bg: #2d333b;
+    }
+
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      background: var(--bg-main);
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.6rem 1.5rem;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      box-shadow: var(--shadow);
+      z-index: 10;
+    }
+
+    .toolbar h1 {
+      font-size: 1.05rem;
+      font-weight: 500;
+      color: var(--text);
+    }
+    .toolbar h1 span {
+      font-weight: 300;
+      color: var(--text-secondary);
+      margin-left: 0.3rem;
+    }
+
+    .theme-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      cursor: pointer;
+      user-select: none;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      padding: 6px 12px;
+      border-radius: 30px;
+      transition: background 0.2s;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+    }
+    .theme-toggle:hover {
+      background: var(--border);
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 48px;
+      height: 26px;
+      background: var(--toggle-bg);
+      border-radius: 40px;
+      transition: background 0.3s ease;
+      box-shadow: inset 0 1px 4px rgba(0,0,0,0.2);
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      background: var(--toggle-dot);
+      border-radius: 50%;
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.3s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    body.dark-theme .toggle-switch {
+      background: #2d333b;
+    }
+    body.dark-theme .toggle-switch::after {
+      transform: translateX(22px);
+      background: #f0f6fc;
+    }
+
+    .editor-wrapper {
+      display: flex;
+      flex: 1 1 0;
+      min-height: 0;
+      gap: 0.75rem;
+      padding: 0.75rem 0.75rem 0.75rem 0.75rem;
+      background: var(--bg-main);
+    }
+
+    .pane {
+      flex: 1 1 50%;
+      min-width: 0;
+      background: var(--bg-panel);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: background 0.3s, border 0.3s;
+    }
+
+    .pane-header {
+      padding: 0.45rem 1rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      background: var(--bg-header);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .pane-content {
+      flex: 1;
+      overflow: auto;
+      padding: 0.8rem 1rem;
+      background: var(--bg-panel);
+      transition: background 0.3s;
+    }
+
+    .pane-content::-webkit-scrollbar {
+      width: 7px;
+      height: 7px;
+    }
+    .pane-content::-webkit-scrollbar-track {
+      background: var(--scrollbar-track);
+      border-radius: 6px;
+    }
+    .pane-content::-webkit-scrollbar-thumb {
+      background: var(--scrollbar-thumb);
+      border-radius: 6px;
+    }
+    .pane-content::-webkit-scrollbar-thumb:hover {
+      background: var(--scrollbar-thumb-hover);
+    }
+    .pane-content {
+      scrollbar-width: thin;
+      scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    }
+
+    #inputArea {
+      width: 100%;
+      height: 100%;
+      border: none;
+      outline: none;
+      resize: none;
+      background: transparent;
+      color: var(--text);
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 0.9rem;
+      line-height: 1.7;
+      padding: 0;
+      margin: 0;
+      tab-size: 2;
+    }
+    #inputArea::placeholder {
+      color: var(--text-secondary);
+      opacity: 0.5;
+    }
+
+    #preview {
+      color: var(--text);
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+    
+    #preview h1 { font-size: 1.9rem; margin: 0.8rem 0 0.3rem; border-bottom: 1px solid var(--border); padding-bottom: 0.2rem; }
+    #preview h2 { font-size: 1.5rem; margin: 0.7rem 0 0.2rem; }
+    #preview h3 { font-size: 1.2rem; margin: 0.6rem 0 0.2rem; }
+    #preview p { margin: 0.5rem 0; }
+    #preview a { color: var(--accent); text-decoration: none; }
+    #preview a:hover { text-decoration: underline; }
+    #preview ul, #preview ol { padding-left: 1.8rem; margin: 0.3rem 0; }
+    #preview blockquote {
+      border-left: 4px solid var(--border);
+      padding: 0.4rem 1rem;
+      margin: 0.5rem 0;
+      background: var(--bg-input);
+      border-radius: 0 6px 6px 0;
+      color: var(--text-secondary);
+    }
+    #preview code:not(pre code) {
+      background: var(--bg-input);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.9em;
+    }
+    #preview pre {
+      background: var(--bg-input);
+      padding: 0.8rem 1rem;
+      border-radius: 8px;
+      overflow: auto;
+      border: 1px solid var(--border);
+    }
+    #preview pre code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      color: var(--text);
+    }
+    #preview img { max-width: 100%; border-radius: 8px; margin: 0.3rem 0; }
+    #preview table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 0.5rem 0;
+    }
+    #preview th, #preview td {
+      border: 1px solid var(--border);
+      padding: 0.3rem 0.7rem;
+      text-align: left;
+    }
+    #preview th { background: var(--bg-input); }
+
+    /* Button styles for preview */
+    #preview button {
+      background: var(--button-bg);
+      color: white;
+      border: none;
+      padding: 10px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 8px 4px;
+      transition: background 0.2s, transform 0.1s;
+      font-weight: 500;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    #preview button:hover {
+      background: var(--button-hover);
+      transform: scale(1.02);
+    }
+    #preview button:active {
+      transform: scale(0.98);
+    }
+
+    #preview .interactive-box {
+      padding: 20px;
+      border-radius: 12px;
+      margin: 10px 0;
+      text-align: center;
+      transition: all 0.3s;
+    }
+
+    #preview .counter-display {
+      font-size: 48px;
+      margin: 10px 0;
+      font-weight: bold;
+      color: var(--button-bg);
+    }
+
+    #preview .todo-item {
+      padding: 10px;
+      background: var(--bg-input);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border: 1px solid var(--border);
+    }
+
+    /* ============================================
+       FOOTER STYLES
+       ============================================ */
+    .app-footer {
+      background: var(--footer-bg);
+      color: white;
+      text-align: center;
+      padding: 10px 20px;
+      flex-shrink: 0;
+      border-top: 1px solid var(--border);
+      transition: background 0.3s ease;
+    }
+
+    .app-footer p {
+      margin: 0;
+      font-size: 14px;
+      letter-spacing: 0.5px;
+    }
+
+    .app-footer .heart {
+      color: #ff6b6b;
+      display: inline-block;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    .app-footer .name {
+      font-weight: 700;
+      color: #ffd93d;
+    }
+
+    .app-footer .year {
+      color: rgba(255,255,255,0.6);
+      font-size: 12px;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.2); }
+    }
+
+    @media (max-width: 720px) {
+      .editor-wrapper {
+        flex-direction: column;
+        gap: 0.5rem;
+        padding: 0.5rem;
+      }
+      .pane { flex: 1 1 50%; min-height: 200px; }
+      .app-footer p {
+        font-size: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ===== TOOLBAR ===== -->
+  <header class="toolbar">
+    <h1>📝 Markdown <span>· code editor</span></h1>
+    <div class="theme-toggle" id="themeToggle" role="button" tabindex="0">
+      <span>☀️</span>
+      <span class="toggle-switch" id="toggleSwitch"></span>
+      <span>🌙</span>
+    </div>
+  </header>
+
+  <!-- ===== EDITOR ===== -->
+  <div class="editor-wrapper">
+    <section class="pane">
+      <div class="pane-header">✎ INPUT (MARKDOWN / HTML)</div>
+      <div class="pane-content" style="padding: 0.6rem 1rem;">
+        <textarea id="inputArea" spellcheck="false"># 🎮 Interactive JavaScript Demo
+
+## 📝 Hello World Heading
+
+&lt;h1 style="color: red; background-color: blue; padding: 15px; border-radius: 8px; text-align: center;"&gt;
+  Hello World
+&lt;/h1&gt;
+
+---
+
+## 🖱️ Click Counter
+
+&lt;div style="background: #f0f4ff; padding: 20px; border-radius: 12px; border: 2px solid #6C76E8; margin: 15px 0; text-align: center;"&gt;
+  &lt;h2 style="color: #6C76E8; margin: 0 0 15px 0;"&gt;🖱️ Click Counter&lt;/h2&gt;
+  &lt;p class="counter-display" id="counterDisplay"&gt;0&lt;/p&gt;
+  &lt;div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;"&gt;
+    &lt;button onclick="window.incrementCounter()"&gt;➕ Click Me&lt;/button&gt;
+    &lt;button onclick="window.resetCounter()" style="background: #FF6B6B;"&gt;🔄 Reset&lt;/button&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+
+---
+
+## 🎨 Color Changer
+
+&lt;div style="background: #f8f9fa; padding: 20px; border-radius: 12px; border: 1px solid #e1e4e8; margin: 15px 0; text-align: center;"&gt;
+  &lt;h2 style="margin: 0 0 15px 0;"&gt;🎨 Change My Color&lt;/h2&gt;
+  &lt;div id="colorBox" style="width: 200px; height: 100px; background: #6C76E8; border-radius: 12px; margin: 10px auto; transition: background 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;"&gt;
+    Click a button
+  &lt;/div&gt;
+  &lt;div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 10px;"&gt;
+    &lt;button onclick="window.changeColor('#6C76E8')" style="background: #6C76E8;"&gt;Purple&lt;/button&gt;
+    &lt;button onclick="window.changeColor('#FF6B6B')" style="background: #FF6B6B;"&gt;Red&lt;/button&gt;
+    &lt;button onclick="window.changeColor('#2ECC71')" style="background: #2ECC71;"&gt;Green&lt;/button&gt;
+    &lt;button onclick="window.changeColor('#F39C12')" style="background: #F39C12;"&gt;Orange&lt;/button&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+
+---
+
+## 📝 Greeting Example
+
+&lt;div style="background: #f8f9fa; padding: 20px; border-radius: 12px; border: 1px solid #e1e4e8; margin: 15px 0;"&gt;
+  &lt;h2 style="margin: 0 0 15px 0;"&gt;✏️ Type Your Name&lt;/h2&gt;
+  &lt;input type="text" id="nameInput" placeholder="Enter your name..." oninput="window.updateGreeting()" style="width: 100%; padding: 12px; border: 2px solid #e1e4e8; border-radius: 8px; font-size: 16px; box-sizing: border-box;"&gt;
+  &lt;p id="greeting" style="font-size: 20px; margin-top: 10px; color: #6C76E8; font-weight: bold;"&gt;Hello, Guest! 👋&lt;/p&gt;
+&lt;/div&gt;
+
+---
+
+## ⏱️ Timer
+
+&lt;div style="background: #f8f9fa; padding: 20px; border-radius: 12px; border: 1px solid #e1e4e8; margin: 15px 0; text-align: center;"&gt;
+  &lt;h2 style="margin: 0 0 10px 0;"&gt;⏱️ Timer&lt;/h2&gt;
+  &lt;p style="font-size: 36px; margin: 10px 0; font-weight: bold; color: #6C76E8;" id="timerDisplay"&gt;00:00&lt;/p&gt;
+  &lt;div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;"&gt;
+    &lt;button onclick="window.startTimer()" style="background: #2ECC71;"&gt;▶️ Start&lt;/button&gt;
+    &lt;button onclick="window.stopTimer()" style="background: #FF6B6B;"&gt;⏹️ Stop&lt;/button&gt;
+    &lt;button onclick="window.resetTimer()" style="background: #95A5A6;"&gt;🔄 Reset&lt;/button&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+
+---
+
+## ✅ To-Do List
+
+&lt;div style="background: #f8f9fa; padding: 20px; border-radius: 12px; border: 1px solid #e1e4e8; margin: 15px 0;"&gt;
+  &lt;h2 style="margin: 0 0 15px 0;"&gt;✅ To-Do List&lt;/h2&gt;
+  &lt;div style="display: flex; gap: 10px; margin-bottom: 10px;"&gt;
+    &lt;input type="text" id="todoInput" placeholder="Add a task..." onkeypress="if(event.key==='Enter') window.addTodo()" style="flex: 1; padding: 10px; border: 2px solid #e1e4e8; border-radius: 8px; font-size: 14px;"&gt;
+    &lt;button onclick="window.addTodo()" style="background: #6C76E8;"&gt;➕ Add&lt;/button&gt;
+  &lt;/div&gt;
+  &lt;ul id="todoList" style="list-style: none; padding: 0; margin: 10px 0 0 0;"&gt;
+    &lt;li class="todo-item"&gt;
+      &lt;span style="cursor: pointer;" onclick="this.style.textDecoration = this.style.textDecoration === 'line-through' ? 'none' : 'line-through';"&gt;Learn JavaScript ✅&lt;/span&gt;
+      &lt;button onclick="this.parentElement.remove()" style="background: #FF6B6B; color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer;"&gt;✖&lt;/button&gt;
+    &lt;/li&gt;
+  &lt;/ul&gt;
+&lt;/div&gt;
+
+---
+
+> 💡 **Tip:** All interactive features work! Click buttons, type in inputs, and see JavaScript in action.</textarea>
+      </div>
+    </section>
+
+    <section class="pane">
+      <div class="pane-header">👁️ PREVIEW (RENDERED)</div>
+      <div class="pane-content" id="previewContainer">
+        <div id="preview"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============================================
+       FOOTER - Made by Virendra 2026
+       ============================================ -->
+  <footer class="app-footer">
+    <p>
+      Made with <span class="heart">❤️</span> by 
+      <span class="name">Virendra</span>
+      <span class="year">© 2026</span>
+    </p>
+  </footer>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+<script>
+  (function() {
+    'use strict';
+
+    // ============================================
+    // JAVASCRIPT FUNCTIONS (Global)
+    // ============================================
+    
+    // 1. Counter
+    let count = 0;
+    window.incrementCounter = function() {
+      count++;
+      const display = document.getElementById('counterDisplay');
+      if (display) display.textContent = count;
+    };
+    window.resetCounter = function() {
+      count = 0;
+      const display = document.getElementById('counterDisplay');
+      if (display) display.textContent = count;
+    };
+
+    // 2. Color Changer
+    window.changeColor = function(color) {
+      const box = document.getElementById('colorBox');
+      if (box) {
+        box.style.background = color;
+        box.textContent = color;
+      }
+    };
+
+    // 3. Greeting
+    window.updateGreeting = function() {
+      const input = document.getElementById('nameInput');
+      const greeting = document.getElementById('greeting');
+      if (input && greeting) {
+        const name = input.value.trim();
+        greeting.textContent = name ? `Hello, ${name}! 👋` : 'Hello, Guest! 👋';
+      }
+    };
+
+    // 4. Timer
+    let timerInterval = null;
+    let seconds = 0;
+    
+    function formatTime(sec) {
+      const mins = Math.floor(sec / 60);
+      const secs = sec % 60;
+      return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+    
+    window.startTimer = function() {
+      if (timerInterval) return;
+      timerInterval = setInterval(() => {
+        seconds++;
+        const display = document.getElementById('timerDisplay');
+        if (display) display.textContent = formatTime(seconds);
+      }, 1000);
+    };
+    
+    window.stopTimer = function() {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    };
+    
+    window.resetTimer = function() {
+      window.stopTimer();
+      seconds = 0;
+      const display = document.getElementById('timerDisplay');
+      if (display) display.textContent = formatTime(seconds);
+    };
+
+    // 5. To-Do List
+    window.addTodo = function() {
+      const input = document.getElementById('todoInput');
+      const list = document.getElementById('todoList');
+      if (!input || !list) return;
+      
+      const text = input.value.trim();
+      if (text === '') return;
+
+      const li = document.createElement('li');
+      li.className = 'todo-item';
+      
+      const span = document.createElement('span');
+      span.textContent = text;
+      span.style.cursor = 'pointer';
+      span.onclick = function() {
+        this.style.textDecoration = this.style.textDecoration === 'line-through' ? 'none' : 'line-through';
+      };
+      
+      const deleteBtn = document.createElement('button');
+      deleteBtn.textContent = '✖';
+      deleteBtn.style.cssText = 'background: #FF6B6B; color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer;';
+      deleteBtn.onclick = function() {
+        this.parentElement.remove();
+      };
+      
+      li.appendChild(span);
+      li.appendChild(deleteBtn);
+      list.appendChild(li);
+      
+      input.value = '';
+    };
+
+    // ============================================
+    // RENDER FUNCTION
+    // ============================================
+    const input = document.getElementById('inputArea');
+    const preview = document.getElementById('preview');
+    const toggleBtn = document.getElementById('themeToggle');
+    const toggleSwitch = document.getElementById('toggleSwitch');
+
+    function render() {
+      const raw = input.value;
+
+      let html = marked.parse(raw, {
+        gfm: true,
+        breaks: true,
+        headerIds: false,
+        mangle: false,
+        sanitize: false,
+        highlight: function(code, lang) {
+          if (lang && hljs.getLanguage(lang)) {
+            try {
+              return hljs.highlight(code, { language: lang }).value;
+            } catch (_) {}
+          }
+          return hljs.highlightAuto(code).value;
+        }
+      });
+
+      // Allow onclick attributes
+      const clean = DOMPurify.sanitize(html, {
+        ALLOWED_TAGS: [
+          'h1','h2','h3','h4','h5','h6','p','br','hr','ul','ol','li','blockquote',
+          'pre','code','a','img','strong','b','em','i','u','del','ins','table',
+          'thead','tbody','tr','th','td','div','span','section','article','header',
+          'footer','main','aside','nav','figure','figcaption','details','summary',
+          'style','link','button','input','ul','li'
+        ],
+        ALLOWED_ATTR: [
+          'href','target','rel','src','alt','title','class','id','style','type',
+          'onclick','oninput','onkeypress','placeholder','value','disabled'
+        ],
+        FORBID_TAGS: ['script','iframe','object','embed']
+      });
+
+      preview.innerHTML = clean;
+
+      // Re-highlight code blocks
+      document.querySelectorAll('#preview pre code').forEach(block => {
+        hljs.highlightElement(block);
+      });
+    }
+
+    // Events
+    input.addEventListener('input', render);
+    input.addEventListener('change', render);
+
+    // Theme toggle
+    function toggleTheme() {
+      document.body.classList.toggle('dark-theme');
+      const isDark = document.body.classList.contains('dark-theme');
+      localStorage.setItem('md-theme', isDark ? 'dark' : 'light');
+    }
+
+    toggleBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      toggleTheme();
+    });
+
+    toggleSwitch.addEventListener('click', function(e) {
+      e.stopPropagation();
+      toggleTheme();
+    });
+
+    toggleBtn.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleTheme();
+      }
+    });
+
+    function loadTheme() {
+      const saved = localStorage.getItem('md-theme');
+      if (saved === 'dark') {
+        document.body.classList.add('dark-theme');
+      } else if (saved === 'light') {
+        document.body.classList.remove('dark-theme');
+      } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.body.classList.add('dark-theme');
+        localStorage.setItem('md-theme', 'dark');
+      }
+    }
+
+    loadTheme();
+    render();
+
+    console.log('✅ Markdown Editor ready with JavaScript!');
+    console.log('🎮 All interactive features are working!');
+    console.log('👨‍💻 Made by Virendra © 2026');
+  })();
+</script>
+</body>
+</html>
